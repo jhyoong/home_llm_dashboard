@@ -1,0 +1,45 @@
+Home LLM Project Goals
+
+1. Monitoring Dashboard
+2. Basic UI controls to start stop llama-servers with preconfigured settings
+	1. Full load on vscode extension assistant
+	2. Full load on open webui usage
+	3. Sub-loads on windows CPU - small models only.
+	4. When not actively coding - swap to Ollama on mac mini only.
+3. Finding the best models for each purpose
+	1. Coding assistant - one is enough
+	2. WebUi - Probably 3 - lightweight, general, coding specific
+	3. Ollama - Same general model and perhaps 2 more models of the same size.
+
+
+Current setup
+Hardware:
+1. Mac Mini M4 24 GB - can go up to 18GB GPU potentially. 
+2. Windows machine - 32 GB RAM, RTX 3070 8GB. CPU usage only good for small models, up to 16GB. GPU usage good up to 7GB, but better to limit to 6GB. If hosting llama-server, will be for CPU only via WSL2. Firewall has been modified to allow port 50053/50054. May need to use `netsh interface portproxy add v4tov4 listenport=50054 listenaddress=0.0.0.0 connectport=50054 connectaddress=172.31.251.233` if connectaddress=wsl eth ip address changes
+3. Debian machine - Lightweight tasks only - Will use for dashboard hosting, and also the UI controls. Also hosts the open-webui frontend via docker. 
+
+
+Key logs when loading models:
+
+Gemma3 27B: Starts out at 100% on a new prompt, drops to 60% load after thinking on MacMini, avg 30% load on RTX3070. Network peaks at 50Mbps only, but usually around 30Mbps on average load.
+$ ./llama-server -m ~/ai-inference/models/gemma-3-27b-it-Q4_K_M.gguf --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 60           
+load_tensors: offloading 60 repeating layers to GPU
+load_tensors: offloaded 60/63 layers to GPU
+load_tensors: Metal_Mapped model buffer size =  9675.76 MiB
+load_tensors:   CPU_Mapped model buffer size =  1607.92 MiB
+load_tensors: RPC[192.168.50.139:50053] model buffer size =  4489.98 MiB 
+
+Qwen2.5-coder-32b-instruct-q4_k_m: For MacMini, GPU usage starts off at 100% on prompt, but then averages at 50% throughout. RAM used is at 17GB total out of 24GB. 6GB RAM used for RPC GPU RTX3070. Network traffic averaging around 18Mbps, with spikes up to 20+. 
+./llama-server -m ~/ai-inference/models/qwen2.5-coder-32b-instruct-q4_k_m.gguf --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 60
+load_tensors: offloading 60 repeating layers to GPU
+load_tensors: offloaded 60/65 layers to GPU
+load_tensors: Metal_Mapped model buffer size = 12021.66 MiB
+load_tensors:   CPU_Mapped model buffer size = 18926.01 MiB
+load_tensors: RPC[192.168.50.139:50053] model buffer size =  5295.79 MiB
+=======Prompt stats=======
+prompt eval time =    3409.28 ms /   142 tokens (   24.01 ms per token,    41.65 tokens per second)
+       eval time =  189588.53 ms /   804 tokens (  235.81 ms per token,     4.24 tokens per second)
+      total time =  192997.82 ms /   946 tokens
+prompt eval time =   20903.73 ms /  1066 tokens (   19.61 ms per token,    51.00 tokens per second)
+       eval time =   26468.71 ms /   112 tokens (  236.33 ms per token,     4.23 tokens per second)
+      total time =   47372.44 ms /  1178 tokens
