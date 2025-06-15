@@ -2,10 +2,11 @@ Home LLM Project Goals
 
 1. Monitoring Dashboard
 2. Basic UI controls to start stop llama-servers with preconfigured settings
-	1. Full load on vscode extension assistant
-	2. Full load on open webui usage
-	3. Sub-loads on windows CPU - small models only.
-	4. When not actively coding - swap to Ollama on mac mini only.
+	1. Full load on vscode extension assistant - This means that all machines available are used for just that one model. 
+	2. Full load on open webui usage - General higher parameter (32B) model loaded, to be available on the open-webui frontend page.
+	3. Sub-loads on windows CPU - small models only. - This will be run as a separate server purely on the WSL2 instance. Limits - CPU, 16GB RAM.
+	4. When not actively coding - swap to Ollama on mac mini only. Full-load models to be stopped - only Ollama running. This is on MacOs, installed via homebrew. Will need special commands to kill the service if needed, otherwise it can be started with 'ollama serve'.
+	Notes: osascript -e 'tell app "Ollama" to quit'. `OLLAMA_HOST=0.0.0.0 ollama serve` this probably needs some more tweaking.
 3. Finding the best models for each purpose
 	1. Coding assistant - one is enough
 	2. WebUi - Probably 3 - lightweight, general, coding specific
@@ -16,6 +17,7 @@ Current setup
 Hardware:
 1. Mac Mini M4 24 GB - can go up to 18GB GPU potentially. 
 2. Windows machine - 32 GB RAM, RTX 3070 8GB. CPU usage only good for small models, up to 16GB. GPU usage good up to 7GB, but better to limit to 6GB. If hosting llama-server, will be for CPU only via WSL2. Firewall has been modified to allow port 50053/50054. May need to use `netsh interface portproxy add v4tov4 listenport=50054 listenaddress=0.0.0.0 connectport=50054 connectaddress=172.31.251.233` if connectaddress=wsl eth ip address changes
+	$ CUDA_VISIBLE_DEVICES=0 ./rpc-server --host 0.0.0.0 --port 50053
 3. Debian machine - Lightweight tasks only - Will use for dashboard hosting, and also the UI controls. Also hosts the open-webui frontend via docker. 
 
 
@@ -43,3 +45,85 @@ prompt eval time =    3409.28 ms /   142 tokens (   24.01 ms per token,    41.65
 prompt eval time =   20903.73 ms /  1066 tokens (   19.61 ms per token,    51.00 tokens per second)
        eval time =   26468.71 ms /   112 tokens (  236.33 ms per token,     4.23 tokens per second)
       total time =   47372.44 ms /  1178 tokens
+
+
+% ./llama-server -m ~/ai-inference/models/qwq-32b-q4_k_m.gguf --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 60
+QwQ-32B-Q4_K_M- Had an issue of "thinking but producing empty lines"
+Mac Mini load: 16+/24GB RAM. Average 50% GPU usage. RTX3070 around 25% load, 6GB RAM. Network at around 18Mbps, then went up to 30Mbps. 
+load_tensors: offloading 60 repeating layers to GPU
+load_tensors: offloaded 60/65 layers to GPU
+load_tensors: Metal_Mapped model buffer size = 12021.66 MiB
+load_tensors:   CPU_Mapped model buffer size = 18926.01 MiB
+load_tensors: RPC[192.168.50.139:50053] model buffer size =  5295.79 MiB
+
+
+% ./llama-server -m ~/ai-inference/models/qwen2.5-coder-14b-instruct-q8_0.gguf --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 65
+load_tensors: offloading 48 repeating layers to GPU
+load_tensors: offloading output layer to GPU
+load_tensors: offloaded 49/49 layers to GPU
+load_tensors: Metal_Mapped model buffer size =  9995.04 MiB
+load_tensors:   CPU_Mapped model buffer size =   788.91 MiB
+load_tensors: RPC[192.168.50.139:50053] model buffer size =  4184.59 MiB
+
+
+./llama-server -m ~/ai-inference/models/qwq-32b-q4_k_m.gguf --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 60 --ctx-size 16384b --seed 3407 --prio 2 --temp 0.6 --repeat-penalty 1.1 --dry-multiplier 0.5 --min-p 0.01 --top-k 40 --top-p 0.95 -no-cnv --samplers "top_k;top_p;min_p;temperature;dry;typ_p;xtc"
+
+
+macminijh@JiaHuis-Mac-mini bin % ./llama-server -m ~/ai-inference/models/QwQ-32B-Q4_K_M.gguf.1 --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 60 --ctx-size 16384b --seed 3407 --prio 2 --temp 0.6 --repeat-penalty 1.1 --dry-multiplier 0.5 --min-p 0.01 --top-k 40 --top-p 0.95 --samplers "top_k;top_p;min_p;temperature;dry;typ_p;xtc"
+build: 5596 (7f37b6cf) with Apple clang version 17.0.0 (clang-1700.0.13.5) for arm64-apple-darwin24.3.0
+system info: n_threads = 4, n_threads_batch = 4, total_threads = 10
+
+load_tensors: offloading 60 repeating layers to GPU
+load_tensors: offloaded 60/65 layers to GPU
+load_tensors: Metal_Mapped model buffer size = 11412.57 MiB
+load_tensors:   CPU_Mapped model buffer size =  2217.65 MiB
+load_tensors: RPC[192.168.50.139:50053] model buffer size =  5295.79 MiB
+
+srv  params_from_: Chat format: Content-only
+slot launch_slot_: id  0 | task 0 | processing task
+slot update_slots: id  0 | task 0 | new prompt, n_ctx_slot = 16384, n_keep = 0, n_prompt_tokens = 98
+slot update_slots: id  0 | task 0 | kv cache rm [0, end)
+slot update_slots: id  0 | task 0 | prompt processing progress, n_past = 98, n_tokens = 98, progress = 1.000000
+slot update_slots: id  0 | task 0 | prompt done, n_past = 98, n_tokens = 98
+slot      release: id  0 | task 0 | stop processing: n_past = 1934, truncated = 0
+slot print_timing: id  0 | task 0 |
+prompt eval time =    3479.21 ms /    98 tokens (   35.50 ms per token,    28.17 tokens per second)
+       eval time =  424716.56 ms /  1837 tokens (  231.20 ms per token,     4.33 tokens per second)
+      total time =  428195.77 ms /  1935 tokens
+srv  update_slots: all slots are idle
+srv  log_server_r: request: POST /chat/completions 192.168.50.210 200
+srv  log_server_r: request: GET /models 192.168.50.210 200
+srv  params_from_: Chat format: Content-only
+slot launch_slot_: id  0 | task 1838 | processing task
+slot update_slots: id  0 | task 1838 | new prompt, n_ctx_slot = 16384, n_keep = 0, n_prompt_tokens = 1154
+slot update_slots: id  0 | task 1838 | kv cache rm [30, end)
+slot update_slots: id  0 | task 1838 | prompt processing progress, n_past = 1154, n_tokens = 1124, progress = 0.974003
+slot update_slots: id  0 | task 1838 | prompt done, n_past = 1154, n_tokens = 1124
+slot      release: id  0 | task 1838 | stop processing: n_past = 3000, truncated = 0
+slot print_timing: id  0 | task 1838 |
+prompt eval time =   21976.59 ms /  1124 tokens (   19.55 ms per token,    51.15 tokens per second)
+       eval time =  446712.34 ms /  1847 tokens (  241.86 ms per token,     4.13 tokens per second)
+      total time =  468688.93 ms /  2971 tokens
+srv  log_server_r: request: POST /chat/completions 192.168.50.210 200
+slot launch_slot_: id  0 | task 1951 | processing task
+slot update_slots: id  0 | task 1951 | new prompt, n_ctx_slot = 16384, n_keep = 0, n_prompt_tokens = 1547
+slot update_slots: id  0 | task 1951 | kv cache rm [0, end)
+slot update_slots: id  0 | task 1951 | prompt processing progress, n_past = 1547, n_tokens = 1547, progress = 1.000000
+slot update_slots: id  0 | task 1951 | prompt done, n_past = 1547, n_tokens = 1547
+
+
+./llama-server -m ~/ai-inference/models/QwQ-32B-Q4_K_M.gguf.1 --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 65 --ctx-size 16384b --seed 3407 --prio 2 --temp 0.6 --repeat-penalty 1.1 --dry-multiplier 0.5 --min-p 0.01 --top-k 40 --top-p 0.95 --samplers "top_k;top_p;min_p;temperature;dry;typ_p;xtc" -fa
+
+
+macminijh@JiaHuis-Mac-mini bin % ./llama-server -m ~/ai-inference/models/QwQ-32B-Q4_K_M.gguf.1 --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 62 --ctx-size 16384b --seed 3407 --prio 2 --temp 0.6 --repeat-penalty 1.1 --dry-multiplier 0.5 --min-p 0.01 --top-k 40 --top-p 0.95 --samplers "top_k;top_p;min_p;temperature;dry;typ_p;xtc" -fa                                      build: 5595 (3a077146) with Apple clang version 17.0.0 (clang-1700.0.13.5) for arm64-apple-darwin24.3.0                         system info: n_threads = 4, n_threads_batch = 4, total_threads = 10                                                                                                                                                                                             system_info: n_threads = 4 (n_threads_batch = 4) / 10 | Metal : EMBED_LIBRARY = 1 | BF16 = 1 | CPU : ARM_FMA = 1 | FP16_VA = 1 | MATMUL_INT8 = 1 | DOTPROD = 1 | SME = 1 | ACCELERATE = 1 | AARCH64_REPACK = 1 |                                                                                                                                                                                main: binding port with default address family                                                                                  main: HTTP server is listening, hostname: 0.0.0.0, port: 8080, http threads: 9                                                  main: loading model                                                                                                             srv    load_model: loading model '/Users/macminijh/ai-inference/models/QwQ-32B-Q4_K_M.gguf.1'                                   llama_model_load_from_file_impl: using device RPC[192.168.50.139:50053] (RPC[192.168.50.139:50053]) - 7100 MiB free             llama_model_load_from_file_impl: using device Metal (Apple M4) - 17407 MiB free
+load_tensors: offloading 62 repeating layers to GPU                                                                             load_tensors: offloaded 62/65 layers to GPU                                                                                     load_tensors: Metal_Mapped model buffer size = 12233.55 MiB                                                                     load_tensors:   CPU_Mapped model buffer size =  1622.20 MiB                                                                     load_tensors: RPC[192.168.50.139:50053] model buffer size =  5070.26 MiB
+
+macminijh@JiaHuis-Mac-mini bin % ./llama-server -m ~/ai-inference/models/QwQ-32B-Q4_K_M.gguf.1 --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 64 --ctx-size 16384b --seed 3407 --prio 2 --temp 0.6 --repeat-penalty 1.1 --dry-multiplier 0.5 --min-p 0.01 --top-k 40 --top-p 0.95 --samplers "top_k;top_p;min_p;temperature;dry;typ_p;xtc" -fa                                      build: 5595 (3a077146) with Apple clang version 17.0.0 (clang-1700.0.13.5) for arm64-apple-darwin24.3.0                         system info: n_threads = 4, n_threads_batch = 4, total_threads = 10                                                                                                                                                                                             system_info: n_threads = 4 (n_threads_batch = 4) / 10 | Metal : EMBED_LIBRARY = 1 | BF16 = 1 | CPU : ARM_FMA = 1 | FP16_VA = 1 | MATMUL_INT8 = 1 | DOTPROD = 1 | SME = 1 | ACCELERATE = 1 | AARCH64_REPACK = 1 |                                                                                                                                                                                main: binding port with default address family                                                                                  main: HTTP server is listening, hostname: 0.0.0.0, port: 8080, http threads: 9                                                  main: loading model                                                                                                             srv    load_model: loading model '/Users/macminijh/ai-inference/models/QwQ-32B-Q4_K_M.gguf.1'                                   llama_model_load_from_file_impl: using device RPC[192.168.50.139:50053] (RPC[192.168.50.139:50053]) - 7100 MiB free             llama_model_load_from_file_impl: using device Metal (Apple M4) - 17407 MiB free                                                 llama_model_loader: loaded meta data with 30 key-value pairs and 771 tensors from /Users/macminijh/ai-inference/models/QwQ-32B-Q4_K_M.gguf.1 (version GGUF V3 (latest))
+load_tensors: offloading 64 repeating layers to GPU                                                                             load_tensors: offloaded 64/65 layers to GPU                                                                                     load_tensors: Metal_Mapped model buffer size = 12531.27 MiB                                                                     load_tensors:   CPU_Mapped model buffer size =  1026.76 MiB                                                                     load_tensors: RPC[192.168.50.139:50053] model buffer size =  5367.98 MiB
+
+./llama-server -m ~/ai-inference/models/gemma-3-27b-it-Q4_K_M.gguf --rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 65 --tensor-split 50,0,15
+
+OLLAMA_HOST=0.0.0.0 OLLAMA_MAX_LOADED_MODELS=1 OLLAMA_NUM_PARALLEL=1 OLLAMA_FLASH_ATTENTION=1 OLLAMA_MAX_QUEUE=20 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve
+
+
+--rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 62 --ctx-size 65536b -ctk q8_0 -ctv q4_0 -fa
