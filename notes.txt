@@ -126,4 +126,5 @@ load_tensors: offloading 64 repeating layers to GPU                             
 OLLAMA_HOST=0.0.0.0 OLLAMA_MAX_LOADED_MODELS=1 OLLAMA_NUM_PARALLEL=1 OLLAMA_FLASH_ATTENTION=1 OLLAMA_MAX_QUEUE=20 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve
 
 
---rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 62 --ctx-size 65536b -ctk q8_0 -ctv q4_0 -fa
+--rpc 192.168.50.139:50053 --host 0.0.0.0 --port 8080 -ngl 50 --ctx-size 65536b -ctk q8_0 -ctv q4_0 -fa
+
