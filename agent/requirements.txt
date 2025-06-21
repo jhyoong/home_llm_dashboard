@@ -1,0 +1,8 @@
+# Agent Requirements
+# Lightweight monitoring agent dependencies
+
+psutil==5.9.6
+requests==2.31.0
+
+# Uncomment the line below if you have NVIDIA GPUs and want GPU/VRAM monitoring
+# pynvml==11.5.0

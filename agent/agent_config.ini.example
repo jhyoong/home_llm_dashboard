@@ -1,0 +1,13 @@
+[agent]
+# Dashboard server configuration
+server_ip = 192.168.1.111
+server_port = 3000
+
+# Update interval in seconds
+time_period = 5
+
+# Optional: Device name override (auto-detected if not set)
+# device_name = custom-device-name
+
+# Example usage:
+# Copy this file to agent_config.ini and edit with your settings

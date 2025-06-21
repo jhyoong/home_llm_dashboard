@@ -1,0 +1,46 @@
+{
+  "qwen2.5-coder-14b-instruct": {
+    "name": "Start coding model",
+    "description": "qwen2.5-coder-14b-instruct model with 48k context",
+    "commands": [
+      "ssh macminijh@192.168.50.212 \"zsh -l -c ./start_qwen2.5-coder-14b-instruct.sh &\""
+    ]
+  },
+  "Qwen3-30B-A3B": {
+    "name": "Start General Model",
+    "description": "Load Qwen3-30B-A3B 48k context for Open WebUI",
+    "commands": [
+      "ssh macminijh@192.168.50.212 \"zsh -l -c ./start_Qwen3-30B-A3B.sh &\""
+    ]
+  },
+  "qwen2.5-coder-32b-instruct": {
+    "name": "Start bigger coding model",
+    "description": "qwen2.5-coder-32b-instruct model with 16k context",
+    "commands": [
+      "ssh macminijh@192.168.50.212 \"zsh -l -c ./start_qwen2.5-coder-32b-instruct.sh &\""
+    ]
+  },
+  "ollama_only": {
+    "name": "Start Ollama",
+    "description": "Stop full models and switch to Ollama on Mac Mini",
+    "commands": [
+      "ssh macminijh@192.168.50.212 \"zsh -l -c ./start_ollama.sh &\""
+    ]
+  },
+  "stop_ollama": {
+    "name": "Stop Ollama",
+    "description": "Stop Ollama on Mac Mini",
+    "commands": [
+      "ssh macminijh@192.168.50.212 \"zsh -l -c ./stop_ollama.sh &\""
+    ]
+  },
+  "stop_all": {
+    "name": "Stop All Models",
+    "description": "Stop all running inference servers",
+    "commands": [
+      "ssh macminijh@192.168.50.212 \"pkill -f llama-server\"",
+      "ssh macminijh@192.168.50.212 \"pkill -f rpc-server\"",
+      "ssh macminijh@192.168.50.212 \"zsh -l -c ./stop_ollama.sh &\""
+    ]
+  }
+}

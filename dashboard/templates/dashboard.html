@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home LLM Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: #2d2d2d;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #4CAF50;
+            font-size: 1.8rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid #444;
+        }
+
+        .card h2 {
+            color: #4CAF50;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            border-bottom: 1px solid #444;
+            padding-bottom: 0.5rem;
+        }
+
+        .device-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .device-card {
+            background: #363636;
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .device-card.offline {
+            border-left-color: #f44336;
+            opacity: 0.7;
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .device-name {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .last-seen {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.3rem 0;
+        }
+
+        .metric-label {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.2rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #ff9800, #f57c00);
+        }
+
+        .progress-fill.danger {
+            background: linear-gradient(90deg, #f44336, #d32f2f);
+        }
+
+        .performance-charts-section {
+            margin-top: 2rem;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .control-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .control-button:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .control-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .control-button h3 {
+            margin-bottom: 0.3rem;
+            font-size: 1.1rem;
+        }
+
+        .control-button p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .script-logs {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        .time-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .time-btn {
+            background: #444;
+            color: #e0e0e0;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .time-btn.active {
+            background: #4CAF50;
+        }
+
+        .time-btn:hover {
+            background: #555;
+        }
+
+        .logout-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .logout-btn:hover {
+            background: #d32f2f;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🤖 Home LLM Dashboard</h1>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div class="status-indicator">
+                <div class="status-dot" id="connectionStatus"></div>
+                <span id="connectionText">Connected</span>
+            </div>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="grid">
+            <!-- Device Monitoring -->
+            <div class="card">
+                <h2>📊 Device Monitoring</h2>
+                <div class="device-grid" id="deviceGrid">
+                    <!-- Devices will be populated here -->
+                </div>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="card">
+                <h2>🎛️ Control Panel</h2>
+                <div class="controls-grid" id="controlsGrid">
+                    <!-- Control buttons will be populated here -->
+                </div>
+                
+                <div style="margin-top: 1rem;">
+                    <h3 style="margin-bottom: 0.5rem; color: #4CAF50;">Script Execution Logs</h3>
+                    <div class="script-logs" id="scriptLogs">Ready to execute scripts...\n</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Charts -->
+        <div class="card performance-charts-section">
+            <h2>📈 Performance Charts</h2>
+            <div class="time-controls">
+                <button class="time-btn active" onclick="changeTimeRange(1)">1 Hour</button>
+                <button class="time-btn" onclick="changeTimeRange(6)">6 Hours</button>
+                <button class="time-btn" onclick="changeTimeRange(24)">1 Day</button>
+                <button class="time-btn" onclick="changeTimeRange(48)">2 Days</button>
+                <button class="time-btn" onclick="changeTimeRange(168)">1 Week</button>
+            </div>
+            <div id="chartsContainer">
+                <!-- Charts will be populated here, one per device -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize WebSocket connection
+        const socket = io();
+        let currentTimeRange = 1;
+        let metricsCharts = {}; // Store multiple charts, one per device
+        let latestMetrics = {};
+
+        // Socket event handlers
+        socket.on('connect', function() {
+            updateConnectionStatus(true);
+            console.log('Connected to dashboard');
+        });
+
+        socket.on('disconnect', function() {
+            updateConnectionStatus(false);
+            console.log('Disconnected from dashboard');
+        });
+
+        socket.on('metrics_update', function(data) {
+            console.log('Received metrics update:', data); // Debug log
+            latestMetrics[data.device_name] = data.metrics;
+            // Update the timestamp in latest metrics
+            latestMetrics[data.device_name].timestamp = data.timestamp;
+            updateDeviceDisplay();
+            updateCharts();
+        });
+
+        socket.on('script_log', function(data) {
+            appendToLogs(data.message);
+        });
+
+        socket.on('script_finished', function(data) {
+            appendToLogs(data.success ? '✅ Script completed successfully' : '❌ Script execution failed');
+            loadControlButtons(); // Re-enable buttons
+        });
+
+        // Update connection status indicator
+        function updateConnectionStatus(connected) {
+            const statusDot = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionText');
+            
+            if (connected) {
+                statusDot.style.background = '#4CAF50';
+                statusText.textContent = 'Connected';
+            } else {
+                statusDot.style.background = '#f44336';
+                statusText.textContent = 'Disconnected';
+            }
+        }
+
+        // Load latest metrics
+        async function loadLatestMetrics() {
+            try {
+                const response = await fetch('/api/metrics/latest');
+                const data = await response.json();
+                console.log('Loaded latest metrics:', data); // Debug log
+                latestMetrics = data;
+                updateDeviceDisplay();
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+            }
+        }
+
+        // Update device display
+        function updateDeviceDisplay() {
+            const deviceGrid = document.getElementById('deviceGrid');
+            deviceGrid.innerHTML = '';
+
+            for (const [deviceName, metrics] of Object.entries(latestMetrics)) {
+                const deviceCard = createDeviceCard(deviceName, metrics);
+                deviceGrid.appendChild(deviceCard);
+            }
+        }
+
+        // Create device card
+        function createDeviceCard(deviceName, metrics) {
+            const card = document.createElement('div');
+            
+            // Parse timestamp with better error handling
+            let lastSeen;
+            let timeSinceLastSeen;
+            let isValidTimestamp = true;
+            
+            try {
+                // Try to parse the timestamp
+                if (metrics.timestamp) {
+                    lastSeen = new Date(metrics.timestamp);
+                    // Check if the date is valid
+                    if (isNaN(lastSeen.getTime())) {
+                        throw new Error('Invalid timestamp');
+                    }
+                    timeSinceLastSeen = Date.now() - lastSeen.getTime();
+                } else {
+                    throw new Error('No timestamp provided');
+                }
+            } catch (error) {
+                console.warn(`Invalid timestamp for device ${deviceName}:`, metrics.timestamp, error);
+                lastSeen = new Date();
+                timeSinceLastSeen = 0;
+                isValidTimestamp = false;
+            }
+            
+            const isOnline = timeSinceLastSeen < 60000; // 60 seconds threshold
+            
+            card.className = `device-card ${isOnline ? '' : 'offline'}`;
+            
+            // Format time since last seen
+            let lastSeenText;
+            if (!isValidTimestamp) {
+                lastSeenText = 'Unknown status';
+            } else if (isOnline) {
+                lastSeenText = 'Online';
+            } else {
+                const secondsAgo = Math.floor(timeSinceLastSeen / 1000);
+                const minutesAgo = Math.floor(secondsAgo / 60);
+                const hoursAgo = Math.floor(minutesAgo / 60);
+                
+                if (hoursAgo > 0) {
+                    lastSeenText = `Offline (${hoursAgo}h ago)`;
+                } else if (minutesAgo > 0) {
+                    lastSeenText = `Offline (${minutesAgo}m ago)`;
+                } else {
+                    lastSeenText = `Offline (${secondsAgo}s ago)`;
+                }
+            }
+            
+            // Format last seen time
+            let lastSeenTimeText;
+            try {
+                lastSeenTimeText = lastSeen.toLocaleTimeString();
+            } catch (error) {
+                lastSeenTimeText = 'Invalid time';
+            }
+            
+            card.innerHTML = `
+                <div class="device-header">
+                    <div class="device-name">${deviceName}</div>
+                    <div class="last-seen">${lastSeenText} • Last: ${lastSeenTimeText}</div>
+                </div>
+                <div class="metrics-row">
+                    <div>
+                        ${createMetric('CPU', metrics.cpu_usage, '%')}
+                        ${createMetric('GPU', metrics.gpu_usage, '%')}
+                        ${createMetric('Network TX', metrics.network_tx, 'Mbps')}
+                    </div>
+                    <div>
+                        ${createMetric('RAM', metrics.ram_usage, 'GB', metrics.ram_total)}
+                        ${createMetric('VRAM', metrics.vram_usage, 'GB', metrics.vram_total)}
+                        ${createMetric('Network RX', metrics.network_rx, 'Mbps')}
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Create metric display
+        function createMetric(label, value, unit, total = null) {
+            if (value === null || value === undefined) {
+                return `<div class="metric">
+                    <span class="metric-label">${label}:</span>
+                    <span class="metric-value">N/A</span>
+                </div>`;
+            }
+            
+            const displayValue = total ? `${value.toFixed(1)}/${total.toFixed(1)}` : value.toFixed(1);
+            const percentage = total ? (value / total) * 100 : value;
+            
+            let progressClass = '';
+            if (percentage > 90) progressClass = 'danger';
+            else if (percentage > 75) progressClass = 'warning';
+            
+            return `<div class="metric">
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="metric-label">${label}:</span>
+                        <span class="metric-value">${displayValue} ${unit}</span>
+                    </div>
+                    ${percentage <= 100 ? `<div class="progress-bar">
+                        <div class="progress-fill ${progressClass}" style="width: ${Math.min(percentage, 100)}%"></div>
+                    </div>` : ''}
+                </div>
+            </div>`;
+        }
+
+        // Load control buttons
+        async function loadControlButtons() {
+            try {
+                const response = await fetch('/api/scripts');
+                const scripts = await response.json();
+                const statusResponse = await fetch('/api/scripts/status');
+                const status = await statusResponse.json();
+                
+                const controlsGrid = document.getElementById('controlsGrid');
+                controlsGrid.innerHTML = '';
+                
+                for (const [scriptId, script] of Object.entries(scripts)) {
+                    const button = document.createElement('button');
+                    button.className = 'control-button';
+                    button.disabled = status.running;
+                    button.onclick = () => executeScript(scriptId);
+                    
+                    button.innerHTML = `
+                        <h3>${script.name}</h3>
+                        <p>${script.description}</p>
+                    `;
+                    
+                    controlsGrid.appendChild(button);
+                }
+            } catch (error) {
+                console.error('Error loading control buttons:', error);
+            }
+        }
+
+        // Execute script
+        async function executeScript(scriptId) {
+            try {
+                const response = await fetch(`/api/scripts/${scriptId}/execute`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    appendToLogs(`🚀 Starting script execution...`);
+                    loadControlButtons(); // Disable buttons
+                } else {
+                    const error = await response.json();
+                    appendToLogs(`❌ Failed to start script: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error executing script:', error);
+                appendToLogs(`❌ Error executing script: ${error.message}`);
+            }
+        }
+
+        // Append to logs
+        function appendToLogs(message) {
+            const logsElement = document.getElementById('scriptLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            logsElement.textContent += `[${timestamp}] ${message}\n`;
+            logsElement.scrollTop = logsElement.scrollHeight;
+        }
+
+        // Change time range for metrics
+        function changeTimeRange(hours) {
+            currentTimeRange = hours;
+            
+            // Update active button
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            updateCharts();
+        }
+
+        // Update all charts with latest data
+        async function updateCharts() {
+            try {
+                const deviceNames = Object.keys(latestMetrics);
+                if (deviceNames.length === 0) {
+                    clearCharts();
+                    return;
+                }
+                
+                // Create or update chart for each device
+                for (const deviceName of deviceNames) {
+                    const response = await fetch(`/api/metrics/${deviceName}?hours=${currentTimeRange}`);
+                    const data = await response.json();
+                    
+                    if (metricsCharts[deviceName]) {
+                        updateChartData(deviceName, data);
+                    } else {
+                        createChart(deviceName, data);
+                    }
+                }
+                
+                // Remove charts for devices that are no longer present
+                for (const chartDeviceName of Object.keys(metricsCharts)) {
+                    if (!deviceNames.includes(chartDeviceName)) {
+                        removeChart(chartDeviceName);
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating charts:', error);
+            }
+        }
+
+        // Create chart for a specific device
+        function createChart(deviceName, data) {
+            const chartsContainer = document.getElementById('chartsContainer');
+            
+            // Create chart container for this device
+            const chartWrapper = document.createElement('div');
+            chartWrapper.id = `chart-wrapper-${deviceName}`;
+            chartWrapper.style.marginBottom = '2rem';
+            
+            const chartTitle = document.createElement('h3');
+            chartTitle.textContent = deviceName;
+            chartTitle.style.color = '#4CAF50';
+            chartTitle.style.marginBottom = '1rem';
+            chartTitle.style.fontSize = '1.1rem';
+            
+            const chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container';
+            
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-${deviceName}`;
+            chartContainer.appendChild(canvas);
+            
+            chartWrapper.appendChild(chartTitle);
+            chartWrapper.appendChild(chartContainer);
+            chartsContainer.appendChild(chartWrapper);
+            
+            const ctx = canvas.getContext('2d');
+            const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
+            
+            metricsCharts[deviceName] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.reverse(),
+                    datasets: [
+                        {
+                            label: 'CPU Usage (%)',
+                            data: data.map(item => item.cpu_usage).reverse(),
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'RAM Usage (%)',
+                            data: data.map(item => item.ram_total ? (item.ram_usage / item.ram_total * 100) : null).reverse(),
+                            borderColor: '#2196F3',
+                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'GPU Usage (%)',
+                            data: data.map(item => item.gpu_usage).reverse(),
+                            borderColor: '#FF9800',
+                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e0e0'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#e0e0e0'
+                            },
+                            grid: {
+                                color: '#444'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#e0e0e0'
+                            },
+                            grid: {
+                                color: '#444'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update existing chart data for a specific device
+        function updateChartData(deviceName, data) {
+            const chart = metricsCharts[deviceName];
+            if (!chart) return;
+            
+            const labels = data.map(item => new Date(item.timestamp).toLocaleTimeString());
+            
+            chart.data.labels = labels.reverse();
+            chart.data.datasets[0].data = data.map(item => item.cpu_usage).reverse();
+            chart.data.datasets[1].data = data.map(item => item.ram_total ? (item.ram_usage / item.ram_total * 100) : null).reverse();
+            chart.data.datasets[2].data = data.map(item => item.gpu_usage).reverse();
+            
+            chart.update();
+        }
+        
+        // Remove chart for a device
+        function removeChart(deviceName) {
+            if (metricsCharts[deviceName]) {
+                metricsCharts[deviceName].destroy();
+                delete metricsCharts[deviceName];
+            }
+            
+            const chartWrapper = document.getElementById(`chart-wrapper-${deviceName}`);
+            if (chartWrapper) {
+                chartWrapper.remove();
+            }
+        }
+        
+        // Clear all charts
+        function clearCharts() {
+            for (const deviceName of Object.keys(metricsCharts)) {
+                removeChart(deviceName);
+            }
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLatestMetrics();
+            loadControlButtons();
+            
+            // Refresh data every 10 seconds
+            setInterval(loadLatestMetrics, 10000);
+            setInterval(loadControlButtons, 30000);
+            
+            // Update device display every 5 seconds to handle offline detection
+            setInterval(updateDeviceDisplay, 5000);
+        });
+    </script>
+</body>
+</html>
